@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "criteria": [
+    { "key": "charter_alignment", "weight": 0.30 },
+    { "key": "clarity", "weight": 0.20 },
+    { "key": "actionability", "weight": 0.25 },
+    { "key": "compliance", "weight": 0.25 }
+  ]
+}

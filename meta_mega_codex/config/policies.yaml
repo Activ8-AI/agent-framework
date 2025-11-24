@@ -1,0 +1,17 @@
+relay:
+  max_payload_bytes: 4096
+  fallback_stack: "kim_watson_stack.yaml"
+executor:
+  summary_prefix: "Advisor Insight"
+  default_actions:
+    - "Clarify current objectives"
+    - "Highlight immediate blockers"
+    - "Offer one actionable next step"
+logger:
+  redact_keys:
+    - "secret"
+    - "token"
+    - "api_key"
+digest:
+  include_history: true
+  max_runs: 25

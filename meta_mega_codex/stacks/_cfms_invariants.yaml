@@ -1,0 +1,17 @@
+cfms_invariants:
+  composable:
+    enforcement:
+      - "Stacks defined in YAML, drop-in ready"
+      - "Inputs/outputs normalized to JSON"
+  fungible:
+    enforcement:
+      - "Agents interchangeable across roles"
+      - "Evaluation scores normalized"
+  modular:
+    enforcement:
+      - "Executor, logger, relay, digest independent"
+      - "Policies scoped per module"
+  stackable:
+    enforcement:
+      - "Pipeline: relay → executor → logger → evaluation → digest"
+      - "Weekly digest aggregates per-run evaluations"

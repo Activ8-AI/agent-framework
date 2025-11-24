@@ -1,0 +1,15 @@
+meta:
+  id: "kim_watson_stack"
+  version: "1.0.0"
+  purpose: "Persona advisory"
+include:
+  - "_cfms_invariants.yaml"
+routing:
+  persona: "kim"
+  role: "advisor"
+agents:
+  - name: "advisor_agent"
+    model: "charter-standard"
+    outputs:
+      - format: "json"
+        normalize: true
