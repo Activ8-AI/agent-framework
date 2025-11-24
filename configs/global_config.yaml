@@ -1,0 +1,22 @@
+version: v1
+timezone: "America/Chicago"
+
+identities:
+  primary: "lmaai@theleverageway.com"
+  backup: "ops@activ8ai.app"
+
+paths:
+  sql_store: "memory/sql_store/"
+  vector_store: "memory/vector_store/"
+  custody_ledger: "custody/custodian_ledger.db"
+
+notion:
+  secrets_database_id: "NOTION_SECRETS_TOKEN"
+  client_matrix_id: "NOTION_MATRIX_DATABASE_ID"
+
+mcp:
+  host: "0.0.0.0"
+  port: 8000
+
+telemetry:
+  heartbeat_interval_seconds: 60
