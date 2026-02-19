@@ -11,17 +11,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, MutableMapping, Optional
 
-import yaml
+from codex_utils import load_yaml
 
 BASE_DIR = Path(__file__).parent
-
-
-def _load_yaml(path: Path) -> Dict[str, Any]:
-    if not path.exists():
-        return {}
-    with path.open("r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle) or {}
-
 
 def _coerce_mapping(value: Any) -> Dict[str, Any]:
     if isinstance(value, Mapping):
@@ -127,8 +119,8 @@ def main() -> None:
     args = parser.parse_args()
 
     stack_path = Path(args.stack_file)
-    stack_config = _load_yaml(stack_path)
-    policies = _load_yaml(BASE_DIR / "config" / "policies.yaml").get("executor", {})
+    stack_config = load_yaml(stack_path, required=True)
+    policies = load_yaml(BASE_DIR / "config" / "policies.yaml").get("executor", {})
     payload = json.loads(args.payload)
 
     executor = CodexExecutor(stack_config=stack_config, policies=policies)

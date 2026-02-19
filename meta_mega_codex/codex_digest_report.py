@@ -9,16 +9,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
-import yaml
+from codex_utils import load_yaml
 
 BASE_DIR = Path(__file__).parent
-
-
-def _load_yaml(path: Path) -> Dict[str, Any]:
-    if not path.exists():
-        return {}
-    with path.open("r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle) or {}
 
 
 def _load_json(path: Path) -> Dict[str, Any]:
@@ -32,8 +25,19 @@ def _collect_runs(vault_dir: Path, limit: int | None) -> List[Dict[str, Any]]:
     runs_root = vault_dir / "runs"
     if not runs_root.exists():
         return []
-    run_dirs = sorted((p for p in runs_root.iterdir() if p.is_dir()), reverse=True)
-    if limit:
+    run_dirs: List[Path] = []
+    for candidate in runs_root.iterdir():
+        if not candidate.is_dir():
+            continue
+        if (candidate / "relay.json").exists():
+            run_dirs.append(candidate)
+            continue
+        for nested in candidate.iterdir():
+            if nested.is_dir():
+                run_dirs.append(nested)
+
+    run_dirs = sorted(run_dirs, reverse=True)
+    if limit is not None:
         run_dirs = run_dirs[:limit]
 
     collected: List[Dict[str, Any]] = []
@@ -73,9 +77,9 @@ def main() -> None:
     if not vault_dir.is_absolute():
         vault_dir = (BASE_DIR / vault_dir).resolve()
 
-    environment_config = _load_yaml(BASE_DIR / "config" / "environment.yaml")
-    policies = _load_yaml(BASE_DIR / "config" / "policies.yaml").get("digest", {})
-    limit = args.limit or policies.get("max_runs")
+    environment_config = load_yaml(BASE_DIR / "config" / "environment.yaml")
+    policies = load_yaml(BASE_DIR / "config" / "policies.yaml").get("digest", {})
+    limit = args.limit if args.limit is not None else policies.get("max_runs")
 
     runs = _collect_runs(vault_dir, limit)
     digest = {

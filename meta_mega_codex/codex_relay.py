@@ -10,9 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-import yaml
-
 from codex_executor import CodexExecutor
+from codex_utils import load_yaml, redact
 
 BASE_DIR = Path(__file__).parent
 PIPELINE = ["relay", "executor", "logger", "evaluation", "digest"]
@@ -32,17 +31,11 @@ def _deep_merge(base: Dict[str, Any], incoming: Dict[str, Any]) -> Dict[str, Any
     return result
 
 
-def _load_yaml(path: Path) -> Dict[str, Any]:
-    with path.open("r", encoding="utf-8") as handle:
-        data = yaml.safe_load(handle) or {}
-    return data
-
-
 def _load_stack_with_includes(path: Path, ancestry: List[Path] | None = None) -> Dict[str, Any]:
     ancestry = ancestry or []
     if path in ancestry:
         raise ValueError(f"Circular include detected: {' -> '.join(str(p) for p in ancestry + [path])}")
-    data = _load_yaml(path)
+    data = load_yaml(path, required=True)
     includes = data.get("include") or []
     merged: Dict[str, Any] = {}
     for include_name in includes:
@@ -73,14 +66,6 @@ def _discover_stack(
     raise LookupError(f"No stack found for persona={persona} role={role}.")
 
 
-def _load_policies() -> Dict[str, Any]:
-    policy_path = BASE_DIR / "config" / "policies.yaml"
-    if not policy_path.exists():
-        return {}
-    with policy_path.open("r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle) or {}
-
-
 def _normalize_run_dir(path_arg: str) -> Path:
     path = Path(path_arg)
     if not path.is_absolute():
@@ -92,7 +77,7 @@ def _normalize_run_dir(path_arg: str) -> Path:
 
 def _parse_payload(payload_str: str, max_bytes: int | None) -> Dict[str, Any]:
     encoded = payload_str.encode("utf-8")
-    if max_bytes and len(encoded) > max_bytes:
+    if max_bytes is not None and len(encoded) > max_bytes:
         raise ValueError(f"Payload exceeds relay policy limit of {max_bytes} bytes.")
     parsed = json.loads(payload_str or "{}")
     if not isinstance(parsed, dict):
@@ -122,8 +107,10 @@ def main() -> None:
     explicit_stack = Path(args.stack_file) if args.stack_file else None
     stack_config, stack_path = _discover_stack(args.persona, args.role, stacks_dir, explicit_stack)
 
-    policies = _load_policies()
+    policies = load_yaml(BASE_DIR / "config" / "policies.yaml")
     payload = _parse_payload(args.payload, policies.get("relay", {}).get("max_payload_bytes"))
+    redact_keys = (policies.get("logger", {}) or {}).get("redact_keys", [])
+    sanitized_payload = redact(payload, redact_keys)
 
     executor = CodexExecutor(stack_config=stack_config, policies=policies.get("executor", {}))
     executor_result = executor.run(payload)
@@ -132,7 +119,9 @@ def main() -> None:
     agent_name = executor_result["meta"].get("agent_name") or "agent"
     output_path = run_dir / "outputs" / f"{agent_name}.json"
     with output_path.open("w", encoding="utf-8") as handle:
-        json.dump(executor_result, handle, indent=2)
+        persisted_result = dict(executor_result)
+        persisted_result["payload"] = sanitized_payload
+        json.dump(persisted_result, handle, indent=2)
         handle.write("\n")
 
     try:
@@ -148,7 +137,7 @@ def main() -> None:
         "pipeline": PIPELINE,
         "cfms_invariants": stack_config.get("cfms_invariants", {}),
         "meta": stack_config.get("meta", {}),
-        "payload": payload,
+        "payload": sanitized_payload,
         "outputs": {
             "executor": output_reference,
         },

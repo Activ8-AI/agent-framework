@@ -13,17 +13,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict
 
-import yaml
+from codex_utils import load_yaml, redact
 
 BASE_DIR = Path(__file__).parent
-
-
-def _load_yaml(path: Path) -> Dict[str, Any]:
-    if not path.exists():
-        return {}
-    with path.open("r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle) or {}
-
 
 def _collect_environment() -> Dict[str, Any]:
     env = {
@@ -44,25 +36,6 @@ def _collect_environment() -> Dict[str, Any]:
     except Exception:  # pragma: no cover
         pass
     return env
-
-
-def _redact(obj: Any, keys_to_redact: Any) -> Any:
-    if not isinstance(obj, dict):
-        return obj
-    redacted = {}
-    sensitive = set(keys_to_redact or [])
-    for key, value in obj.items():
-        if key in sensitive:
-            redacted[key] = "***REDACTED***"
-        elif isinstance(value, dict):
-            redacted[key] = _redact(value, keys_to_redact)
-        elif isinstance(value, list):
-            redacted[key] = [
-                _redact(item, keys_to_redact) if isinstance(item, dict) else item for item in value
-            ]
-        else:
-            redacted[key] = value
-    return redacted
 
 
 def _build_cli() -> argparse.ArgumentParser:
@@ -87,9 +60,9 @@ def main() -> None:
     with relay_file.open("r", encoding="utf-8") as handle:
         relay_data = json.load(handle)
 
-    policies = _load_yaml(BASE_DIR / "config" / "policies.yaml").get("logger", {})
+    policies = load_yaml(BASE_DIR / "config" / "policies.yaml").get("logger", {})
     redact_keys = policies.get("redact_keys", [])
-    sanitized_payload = _redact(relay_data.get("payload", {}), redact_keys)
+    sanitized_payload = redact(relay_data.get("payload", {}), redact_keys)
 
     log_record = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
