@@ -1,6 +1,5 @@
 import uvicorn
-from fastapi import FastAPI, Request
-import os, json, datetime
+from fastapi import FastAPI, HTTPException, Request
 
 from custody.custodian_ledger import log_event
 from telemetry.emit_heartbeat import generate_heartbeat
@@ -19,13 +18,30 @@ def heartbeat():
 
 @app.post("/relay")
 async def relay(request: Request):
-    body = await request.json()
+    try:
+        body = await request.json()
+    except Exception:
+        log_event("RELAY_INVALID", {"body_type": "invalid_json"})
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    if not isinstance(body, dict):
+        log_event("RELAY_INVALID", {"body_type": type(body).__name__})
+        raise HTTPException(status_code=400, detail="Invalid envelope")
+
     envelope = body.get("envelope")
     tool = body.get("tool")
 
     if not envelope or not tool:
-        log_event("RELAY_INVALID", {"body": body})
-        return {"error": "Invalid envelope"}
+        log_event(
+            "RELAY_INVALID",
+            {
+                "body_type": "dict",
+                "keys": list(body.keys())[:50],
+                "has_envelope": bool(envelope),
+                "has_tool": bool(tool),
+            },
+        )
+        raise HTTPException(status_code=400, detail="Invalid envelope")
 
     log_event("RELAY_RECEIVED", {"tool": tool, "envelope": envelope})
     return {"status": "received", "tool": tool}
